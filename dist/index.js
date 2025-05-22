@@ -26071,21 +26071,17 @@ exports.executeRun = executeRun;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.formatReportComparisonAsMarkdown = exports.createMarkdownTableRow = exports.getMarkdownTableCell = void 0;
 const compare_service_1 = __nccwpck_require__(3254);
-const getMarkdownTableCell = ({ currentValue, isRegression, diffValue, metricUnit, metricType }) => {
+const getMarkdownTableCell = ({ currentValue, isRegression, diffValue, metricType }) => {
     switch (metricType) {
         case 'performance':
-            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
         case 'accessibility':
-            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
         case 'seo':
-            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
         case 'bestPractices':
-            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
+        case 'cls':
+            return `${currentValue} ${isRegression ? '🔴' : '🟢'} (${isRegression ? '+' : ''} ${diffValue})`;
         case 'lcp':
         case 'tbt':
-            return `${currentValue} ms ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '+' : '-'}${diffValue} ms")`;
-        case 'cls':
-            return `${currentValue} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '+' : '-'} ${diffValue}")`;
+            return `${currentValue} ms ${isRegression ? '🔴' : '🟢'} (${isRegression ? '+' : ''}${diffValue} ms)`;
         default:
             return '';
     }
@@ -26099,25 +26095,25 @@ const createMarkdownTableRow = ({ url, comparedMetrics, link }) => {
         isRegression: performance.isRegression,
         diffValue: performance.diff,
         metricType: 'performance',
-        metricUnit: '/100'
+        metricUnit: ''
     })} | ${(0, exports.getMarkdownTableCell)({
         currentValue: accessibility.currentValue,
         isRegression: accessibility.isRegression,
         diffValue: accessibility.diff,
         metricType: 'accessibility',
-        metricUnit: '/100'
+        metricUnit: ''
     })} | ${(0, exports.getMarkdownTableCell)({
         currentValue: seo.currentValue,
         isRegression: seo.isRegression,
         diffValue: seo.diff,
         metricType: 'seo',
-        metricUnit: '/100'
+        metricUnit: ''
     })} | ${(0, exports.getMarkdownTableCell)({
         currentValue: bestPractices.currentValue,
         isRegression: bestPractices.isRegression,
         diffValue: bestPractices.diff,
         metricType: 'bestPractices',
-        metricUnit: '/100'
+        metricUnit: ''
     })} | ${(0, exports.getMarkdownTableCell)({
         currentValue: lcp.currentValue,
         isRegression: lcp.isRegression,
@@ -26136,15 +26132,14 @@ const createMarkdownTableRow = ({ url, comparedMetrics, link }) => {
         diffValue: tbt.diff,
         metricUnit: 'ms',
         metricType: 'tbt'
-    })} | [Report](${link}) |`;
+    })} | [Rep](${link}) |`;
 };
 exports.createMarkdownTableRow = createMarkdownTableRow;
 /* istanbul ignore next */
 const formatReportComparisonAsMarkdown = ({ comparedMetrics, inputPath }) => {
     const comparison = (0, compare_service_1.getComparisonLinksObject)({ inputPath });
     return `
-| :URL: | :Performance: | :Accessibility: | :SEO: | :Best Practices: | :LCP: | :CLS: | :TBT: | :Report: |
-|:--- |:-----------:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
+| URL | Perf | A11y | SEO | Best P. | LCP | CLS | TBT | Report |
 ${Object.entries(comparison)
         .map(([url, link]) => {
         return (0, exports.createMarkdownTableRow)({ url, comparedMetrics, link });

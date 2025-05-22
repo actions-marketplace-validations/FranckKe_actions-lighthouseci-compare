@@ -13,7 +13,6 @@ export const getMarkdownTableCell = ({
   currentValue,
   isRegression,
   diffValue,
-  metricUnit,
   metricType
 }: MarkdownTableCellInterface): string => {
   switch (metricType) {
