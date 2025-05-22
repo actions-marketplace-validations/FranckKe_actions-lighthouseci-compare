@@ -1,15 +1,22 @@
 # Lighthouse CI Compare Action
 
-[![GitHub Super-Linter](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
-![CI](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/ci.yml/badge.svg)
-[![Check dist/](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/check-dist.yml/badge.svg)](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/check-dist.yml)
-[![CodeQL](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/codeql-analysis.yml)
+Fork of
+[adevinta/actions-lighthouseci-compare](https://github.com/adevinta/actions-lighthouseci-compare)
 
 This action helps you to based on the results of running Lighthouse CI, compare
 the current results with the ancestor commit results.
 
 This comparison can be used to create a Markdown table and a comment on the pull
 request.
+
+## Differences with the original action v1.1.6
+
+[https://github.com/marketplace/actions/lighthouse-ci-compare-action](https://github.com/marketplace/actions/lighthouse-ci-compare-action)
+v1.1.6
+
+- Support for non valid port in Lighthouse report URLs for when testing against
+  a local `/dist` in CI
+- Add accessibility, SEO and best practices metrics to the comparison
 
 ## Getting started
 
@@ -25,16 +32,29 @@ request.
 ### Usage
 
 ```yaml
+jobs:
+  lighthouseci:
+    # If commenting comparaison results in the PR
+    permissions:
+      pull-requests: write
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+        # fetch depth must be > 1 in order to populate ancestry information in the Lighthouse CI server
+          fetch-depth: 10
 - name: Lighthouse CI Compare
-  uses: adevinta/actions-lighthouseci-compare@v1
+  uses: FranckKe/actions-lighthouseci-compare@v1
+  id: LHCI-compare
   with:
     links-filepath: '.lighthouseci/links.json'
-    base-url: 'https://your-lhci-server.com/v1'
-    project-id: 'your-project-id'
+    base-url: ${{ format('{0}/v1', secrets.LHCI_SERVER_URL) }}
+    project-id: ${{ secrets.LHCI_PROJECT_ID }}
     current-commit-sha:
       ${{ github.event_name == 'pull_request' &&
       github.event.pull_request.head.sha || github.sha }}
-    should-build-fail: true
+    should-build-fail: true # If you want to fail the build if the action fails
     # If your custom server is protected with basic auth
     basic-auth-username: ${{ secrets.LHCI_USERNAME }}
     basic-auth-password: ${{ secrets.LHCI_PASSWORD }}
