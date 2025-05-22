@@ -18,30 +18,18 @@ export const getMarkdownTableCell = ({
 }: MarkdownTableCellInterface): string => {
   switch (metricType) {
     case 'performance':
-      return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${
-        isRegression ? '-' : '+'
-      }${diffValue}")`
     case 'accessibility':
-      return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${
-        isRegression ? '-' : '+'
-      }${diffValue}")`
     case 'seo':
-      return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${
-        isRegression ? '-' : '+'
-      }${diffValue}")`
     case 'bestPractices':
-      return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${
-        isRegression ? '-' : '+'
-      }${diffValue}")`
+    case 'cls':
+      return `${currentValue} ${isRegression ? '🔴' : '🟢'} (${
+        isRegression ? '+' : ''
+      } ${diffValue})`
     case 'lcp':
     case 'tbt':
-      return `${currentValue} ms ${isRegression ? '🔴' : '🟢'} ("${
-        isRegression ? '+' : '-'
-      }${diffValue} ms")`
-    case 'cls':
-      return `${currentValue} ${isRegression ? '🔴' : '🟢'} ("${
-        isRegression ? '+' : '-'
-      } ${diffValue}")`
+      return `${currentValue} ms ${isRegression ? '🔴' : '🟢'} (${
+        isRegression ? '+' : ''
+      }${diffValue} ms)`
     default:
       return ''
   }
@@ -64,25 +52,25 @@ export const createMarkdownTableRow = ({
     isRegression: performance.isRegression,
     diffValue: performance.diff,
     metricType: 'performance',
-    metricUnit: '/100'
+    metricUnit: ''
   })} | ${getMarkdownTableCell({
     currentValue: accessibility.currentValue,
     isRegression: accessibility.isRegression,
     diffValue: accessibility.diff,
     metricType: 'accessibility',
-    metricUnit: '/100'
+    metricUnit: ''
   })} | ${getMarkdownTableCell({
     currentValue: seo.currentValue,
     isRegression: seo.isRegression,
     diffValue: seo.diff,
     metricType: 'seo',
-    metricUnit: '/100'
+    metricUnit: ''
   })} | ${getMarkdownTableCell({
     currentValue: bestPractices.currentValue,
     isRegression: bestPractices.isRegression,
     diffValue: bestPractices.diff,
     metricType: 'bestPractices',
-    metricUnit: '/100'
+    metricUnit: ''
   })} | ${getMarkdownTableCell({
     currentValue: lcp.currentValue,
     isRegression: lcp.isRegression,
@@ -101,7 +89,7 @@ export const createMarkdownTableRow = ({
     diffValue: tbt.diff,
     metricUnit: 'ms',
     metricType: 'tbt'
-  })} | [Report](${link}) |`
+  })} | [Rep](${link}) |`
 }
 /* istanbul ignore next */
 export const formatReportComparisonAsMarkdown = ({
@@ -113,8 +101,7 @@ export const formatReportComparisonAsMarkdown = ({
 }): string => {
   const comparison = getComparisonLinksObject({ inputPath })
   return `
-| :URL: | :Performance: | :Accessibility: | :SEO: | :Best Practices: | :LCP: | :CLS: | :TBT: | :Report: |
-|:--- |:-----------:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
+| URL | Perf | A11y | SEO | Best P. | LCP | CLS | TBT | Report |
 ${Object.entries(comparison)
   .map(([url, link]) => {
     return createMarkdownTableRow({ url, comparedMetrics, link })
