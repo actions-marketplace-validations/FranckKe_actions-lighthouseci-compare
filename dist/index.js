@@ -25651,6 +25651,7 @@ const getBuilds = async ({ baseUrl, projectId, currentCommitSha, basicAuthUserna
         console.log('Basic Auth detected');
         basicAuthHeaders.append('Authorization', `Basic ${btoa(`${basicAuthUsername}:${basicAuthPassword}`)}`);
     }
+    console.log('buildListResponse');
     const buildListResponse = await fetch(BUILD_LIST_URL, {
         headers: basicAuthHeaders
     });
@@ -25661,16 +25662,20 @@ const getBuilds = async ({ baseUrl, projectId, currentCommitSha, basicAuthUserna
         }
         throw new Error(`[api-service][ERROR]: Could not get builds from LHCI API${err}`);
     }
+    console.log('builds');
     const builds = (await buildListResponse.json());
+    console.log('builds done');
     // find the build that matches the commit hash
     const build = builds.filter(currentBuild => currentBuild.hash === CURRENT_COMMIT_SHA)[0];
     if (!build?.id) {
         throw new Error(`[api-service][ERROR]: Could not find build for commit hash {${CURRENT_COMMIT_SHA}}`);
     }
+    console.log('responseAncestor');
     // get the ancestor of the build from the lighthouse-ci API
     const responseAncestor = await fetch(`${PROJECT_URL}/builds/${build.id}/ancestor`, {
         headers: basicAuthHeaders
     });
+    console.log('responseAncestor done');
     if (!responseAncestor.ok) {
         let err = '';
         if (responseAncestor.status && responseAncestor.statusText) {
@@ -25678,10 +25683,12 @@ const getBuilds = async ({ baseUrl, projectId, currentCommitSha, basicAuthUserna
         }
         throw new Error(`[api-service][ERROR]: Could not get ancestor build for build {${build.id}}${err}`);
     }
+    console.log('ancestorBuild');
     const ancestorBuild = await responseAncestor.json();
     if (!ancestorBuild?.id) {
         throw new Error(`[api-service][ERROR]: Could not find ancestor build for build {${build.id}}`);
     }
+    console.log('ancestorBuild done', ancestorBuild);
     return { build, ancestorBuild };
 };
 exports.getBuilds = getBuilds;
@@ -25691,6 +25698,7 @@ const getLighthouseCIRuns = async ({ baseUrl, projectId, buildId, ancestorBuildI
     if (basicAuthUsername && basicAuthPassword) {
         basicAuthHeaders.append('Authorization', `Basic ${btoa(`${basicAuthUsername}:${basicAuthPassword}`)}`);
     }
+    console.log('getLighthouseCIRuns');
     const [runResponse, ancestorRunResponse] = await Promise.all([
         fetch(`${PROJECT_URL}/builds/${buildId}/runs?representative=true`, {
             headers: basicAuthHeaders
@@ -25699,6 +25707,7 @@ const getLighthouseCIRuns = async ({ baseUrl, projectId, buildId, ancestorBuildI
             headers: basicAuthHeaders
         })
     ]);
+    console.log('getLighthouseCIRuns done', JSON.stringify(runResponse), JSON.stringify(ancestorRunResponse));
     if (!runResponse.ok || !ancestorRunResponse.ok) {
         throw new Error(`[api-service][ERROR]: Could not get runs from LHCI API`);
     }
@@ -25795,24 +25804,49 @@ const compareLHRs = ({ runs, ancestorRuns }) => {
             const runLHR = run.lhr;
             const ancestorRunLHR = ancestorRun.lhr;
             // get the performance score, lcp, tbt and cls of the current run and the ancestor run and compare them
+            // Performance
             const performance = runLHR.categories.performance;
             const ancestorPerformance = ancestorRunLHR.categories.performance;
             const currentPerformance = parseFloat(((performance.score ? performance.score : 0) * 100).toFixed(0));
             const previousPerformance = parseFloat(((ancestorPerformance.score ? ancestorPerformance.score : 0) * 100).toFixed(0));
             const diffPerformance = parseFloat((currentPerformance - previousPerformance).toFixed(0));
             const isPerformanceRegression = diffPerformance < 0;
+            // SEO
+            const seo = runLHR.categories.seo;
+            const ancestorSEO = ancestorRunLHR.categories.seo;
+            const currentSEO = parseFloat(((seo.score ? seo.score : 0) * 100).toFixed(0));
+            const previousSEO = parseFloat(((ancestorSEO.score ? ancestorSEO.score : 0) * 100).toFixed(0));
+            const diffSEO = parseFloat((currentSEO - previousSEO).toFixed(0));
+            const isSEORegression = diffSEO < 0;
+            // Accessibility
+            const accessibility = runLHR.categories.accessibility;
+            const ancestorAccessibility = ancestorRunLHR.categories.accessibility;
+            const currentAccessibility = parseFloat(((accessibility.score ? accessibility.score : 0) * 100).toFixed(0));
+            const previousAccessibility = parseFloat(((ancestorAccessibility.score ? ancestorAccessibility.score : 0) * 100).toFixed(0));
+            const diffAccessibility = parseFloat((currentAccessibility - previousAccessibility).toFixed(0));
+            const isAccessibilityRegression = diffAccessibility < 0;
+            // Best Practices
+            const bestPractice = runLHR.categories['best-practices'];
+            const ancestorBestPractice = ancestorRunLHR.categories['best-practices'];
+            const currentBestPractice = parseFloat(((bestPractice.score ? bestPractice.score : 0) * 100).toFixed(0));
+            const previousBestPractice = parseFloat(((ancestorBestPractice.score ? ancestorBestPractice.score : 0) * 100).toFixed(0));
+            const diffBestPractice = parseFloat((currentBestPractice - previousBestPractice).toFixed(0));
+            const isBestPracticeRegression = diffBestPractice < 0;
+            //  LCP - Largest Contentful Paint
             const lcp = runLHR.audits['largest-contentful-paint'];
             const ancestorLCP = ancestorRunLHR.audits['largest-contentful-paint'];
             const currentLCP = parseFloat((lcp.numericValue ? lcp.numericValue : 0).toFixed(0));
             const previousLCP = parseFloat((ancestorLCP.numericValue ? ancestorLCP.numericValue : 0).toFixed(0));
             const diffLCP = currentLCP - previousLCP;
             const isLCPRegression = diffLCP > 0;
+            // TBT - Total Blocking Time
             const tbt = runLHR.audits['total-blocking-time'];
             const ancestorTBT = ancestorRunLHR.audits['total-blocking-time'];
             const currentTBT = parseFloat((tbt.numericValue ? tbt.numericValue : 0).toFixed(0));
             const previousTBT = parseFloat((ancestorTBT.numericValue ? ancestorTBT.numericValue : 0).toFixed(0));
             const diffTBT = currentTBT - previousTBT;
             const isTBTRegression = diffTBT > 0;
+            // CLS - Cumulative Layout Shift
             const cls = runLHR.audits['cumulative-layout-shift'];
             const ancestorCLS = ancestorRunLHR.audits['cumulative-layout-shift'];
             const currentCLS = parseFloat((cls.numericValue ? cls.numericValue : 0).toFixed(3));
@@ -25820,13 +25854,41 @@ const compareLHRs = ({ runs, ancestorRuns }) => {
             const diffCLS = currentCLS - previousCLS;
             const isCLSRegression = diffCLS > 0;
             // we will simplify the url to only be the pathname
-            const urlKey = new URL(run.url).pathname;
+            console.log('run.url', run.url);
+            // if self hosting, the url might be using an invalid port like so:  localhost:PORT
+            // if run.url contains the string "PORT" replace it with 3000
+            let urlToUse = run.url;
+            if (run.url.includes('PORT')) {
+                urlToUse = run.url.replace(/PORT/g, '3000');
+            }
+            const url = new URL(urlToUse);
+            const urlWithoutPort = url.toString();
+            console.log('urlWithoutPort', urlWithoutPort);
+            const urlKey = new URL(urlToUse).pathname;
             buildLHRObject[urlKey] = {
                 performance: {
                     currentValue: currentPerformance,
                     previousValue: previousPerformance,
                     diff: diffPerformance,
                     isRegression: isPerformanceRegression
+                },
+                seo: {
+                    currentValue: currentSEO,
+                    previousValue: previousSEO,
+                    diff: diffSEO,
+                    isRegression: isSEORegression
+                },
+                accessibility: {
+                    currentValue: currentAccessibility,
+                    previousValue: previousAccessibility,
+                    diff: diffAccessibility,
+                    isRegression: isAccessibilityRegression
+                },
+                bestPractices: {
+                    currentValue: currentBestPractice,
+                    previousValue: previousBestPractice,
+                    diff: diffBestPractice,
+                    isRegression: isBestPracticeRegression
                 },
                 lcp: {
                     currentValue: currentLCP,
@@ -26012,12 +26074,18 @@ const compare_service_1 = __nccwpck_require__(3254);
 const getMarkdownTableCell = ({ currentValue, isRegression, diffValue, metricUnit, metricType }) => {
     switch (metricType) {
         case 'performance':
-            return `[${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'}](## "Performance has ${isRegression ? 'decreased in ' : 'improved in +'}${diffValue} points")`;
+            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
+        case 'accessibility':
+            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
+        case 'seo':
+            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
+        case 'bestPractices':
+            return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '-' : '+'}${diffValue}")`;
         case 'lcp':
         case 'tbt':
-            return `[${currentValue} ms ${isRegression ? '🔴' : '🟢'}](## "The ${metricType} has ${isRegression ? 'increased in +' : 'decreased in '}${diffValue} ms")`;
+            return `${currentValue} ms ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '+' : '-'}${diffValue} ms")`;
         case 'cls':
-            return `[${currentValue} ${isRegression ? '🔴' : '🟢'}](## "The CLS has ${isRegression ? 'increased in +' : 'decreased in'} ${diffValue}")`;
+            return `${currentValue} ${isRegression ? '🔴' : '🟢'} ("${isRegression ? '+' : '-'} ${diffValue}")`;
         default:
             return '';
     }
@@ -26025,12 +26093,30 @@ const getMarkdownTableCell = ({ currentValue, isRegression, diffValue, metricUni
 exports.getMarkdownTableCell = getMarkdownTableCell;
 const createMarkdownTableRow = ({ url, comparedMetrics, link }) => {
     const urlPathname = new URL(url).pathname;
-    const { performance, lcp, tbt, cls } = comparedMetrics[urlPathname];
+    const { performance, bestPractices, accessibility, seo, lcp, tbt, cls } = comparedMetrics[urlPathname];
     return `| [${new URL(url).pathname}](${url}) | ${(0, exports.getMarkdownTableCell)({
         currentValue: performance.currentValue,
         isRegression: performance.isRegression,
         diffValue: performance.diff,
         metricType: 'performance',
+        metricUnit: '/100'
+    })} | ${(0, exports.getMarkdownTableCell)({
+        currentValue: accessibility.currentValue,
+        isRegression: accessibility.isRegression,
+        diffValue: accessibility.diff,
+        metricType: 'accessibility',
+        metricUnit: '/100'
+    })} | ${(0, exports.getMarkdownTableCell)({
+        currentValue: seo.currentValue,
+        isRegression: seo.isRegression,
+        diffValue: seo.diff,
+        metricType: 'seo',
+        metricUnit: '/100'
+    })} | ${(0, exports.getMarkdownTableCell)({
+        currentValue: bestPractices.currentValue,
+        isRegression: bestPractices.isRegression,
+        diffValue: bestPractices.diff,
+        metricType: 'bestPractices',
         metricUnit: '/100'
     })} | ${(0, exports.getMarkdownTableCell)({
         currentValue: lcp.currentValue,
@@ -26057,8 +26143,8 @@ exports.createMarkdownTableRow = createMarkdownTableRow;
 const formatReportComparisonAsMarkdown = ({ comparedMetrics, inputPath }) => {
     const comparison = (0, compare_service_1.getComparisonLinksObject)({ inputPath });
     return `
-| URL | Performance | LCP | CLS | TBT | Link to Report |
-|:--- |:-----------:| ---:| ---:| ---:|:-------------- |
+| :URL: | :Performance: | :Accessibility: | :SEO: | :Best Practices: | :LCP: | :CLS: | :TBT: | :Report: |
+|:--- |:-----------:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
 ${Object.entries(comparison)
         .map(([url, link]) => {
         return (0, exports.createMarkdownTableRow)({ url, comparedMetrics, link });

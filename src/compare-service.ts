@@ -60,6 +60,7 @@ export const compareLHRs = ({
       const runLHR: Result = run.lhr as Result
       const ancestorRunLHR: Result = ancestorRun.lhr as Result
       // get the performance score, lcp, tbt and cls of the current run and the ancestor run and compare them
+      // Performance
       const performance: Result.Category = runLHR.categories.performance
       const ancestorPerformance: Result.Category =
         ancestorRunLHR.categories.performance
@@ -75,6 +76,53 @@ export const compareLHRs = ({
         (currentPerformance - previousPerformance).toFixed(0)
       )
       const isPerformanceRegression = diffPerformance < 0
+
+      // SEO
+      const seo: Result.Category = runLHR.categories.seo
+      const ancestorSEO: Result.Category = ancestorRunLHR.categories.seo
+      const currentSEO = parseFloat(
+        ((seo.score ? seo.score : 0) * 100).toFixed(0)
+      )
+      const previousSEO = parseFloat(
+        ((ancestorSEO.score ? ancestorSEO.score : 0) * 100).toFixed(0)
+      )
+      const diffSEO = parseFloat((currentSEO - previousSEO).toFixed(0))
+      const isSEORegression = diffSEO < 0
+
+      // Accessibility
+      const accessibility: Result.Category = runLHR.categories.accessibility
+      const ancestorAccessibility: Result.Category =
+        ancestorRunLHR.categories.accessibility
+      const currentAccessibility = parseFloat(
+        ((accessibility.score ? accessibility.score : 0) * 100).toFixed(0)
+      )
+      const previousAccessibility = parseFloat(
+        (
+          (ancestorAccessibility.score ? ancestorAccessibility.score : 0) * 100
+        ).toFixed(0)
+      )
+      const diffAccessibility = parseFloat(
+        (currentAccessibility - previousAccessibility).toFixed(0)
+      )
+      const isAccessibilityRegression = diffAccessibility < 0
+
+      // Best Practices
+      const bestPractice: Result.Category = runLHR.categories['best-practices']
+      const ancestorBestPractice: Result.Category =
+        ancestorRunLHR.categories['best-practices']
+      const currentBestPractice = parseFloat(
+        ((bestPractice.score ? bestPractice.score : 0) * 100).toFixed(0)
+      )
+      const previousBestPractice = parseFloat(
+        (
+          (ancestorBestPractice.score ? ancestorBestPractice.score : 0) * 100
+        ).toFixed(0)
+      )
+      const diffBestPractice = parseFloat(
+        (currentBestPractice - previousBestPractice).toFixed(0)
+      )
+      const isBestPracticeRegression = diffBestPractice < 0
+      //  LCP - Largest Contentful Paint
       const lcp: AuditResult = runLHR.audits['largest-contentful-paint']
       const ancestorLCP: AuditResult =
         ancestorRunLHR.audits['largest-contentful-paint']
@@ -87,6 +135,7 @@ export const compareLHRs = ({
       const diffLCP = currentLCP - previousLCP
       const isLCPRegression = diffLCP > 0
 
+      // TBT - Total Blocking Time
       const tbt: AuditResult = runLHR.audits['total-blocking-time']
       const ancestorTBT: AuditResult =
         ancestorRunLHR.audits['total-blocking-time']
@@ -99,6 +148,7 @@ export const compareLHRs = ({
       const diffTBT = currentTBT - previousTBT
       const isTBTRegression = diffTBT > 0
 
+      // CLS - Cumulative Layout Shift
       const cls: AuditResult = runLHR.audits['cumulative-layout-shift']
       const ancestorCLS: AuditResult =
         ancestorRunLHR.audits['cumulative-layout-shift']
@@ -112,13 +162,42 @@ export const compareLHRs = ({
       const isCLSRegression = diffCLS > 0
 
       // we will simplify the url to only be the pathname
-      const urlKey = new URL(run.url).pathname
+      console.log('run.url', run.url)
+      // if self hosting, the url might be using an invalid port like so:  localhost:PORT
+      // if run.url contains the string "PORT" replace it with 3000
+      let urlToUse = run.url
+      if (run.url.includes('PORT')) {
+        urlToUse = run.url.replace(/PORT/g, '3000')
+      }
+      const url = new URL(urlToUse)
+      const urlWithoutPort = url.toString()
+      console.log('urlWithoutPort', urlWithoutPort)
+
+      const urlKey = new URL(urlToUse).pathname
       buildLHRObject[urlKey] = {
         performance: {
           currentValue: currentPerformance,
           previousValue: previousPerformance,
           diff: diffPerformance,
           isRegression: isPerformanceRegression
+        },
+        seo: {
+          currentValue: currentSEO,
+          previousValue: previousSEO,
+          diff: diffSEO,
+          isRegression: isSEORegression
+        },
+        accessibility: {
+          currentValue: currentAccessibility,
+          previousValue: previousAccessibility,
+          diff: diffAccessibility,
+          isRegression: isAccessibilityRegression
+        },
+        bestPractices: {
+          currentValue: currentBestPractice,
+          previousValue: previousBestPractice,
+          diff: diffBestPractice,
+          isRegression: isBestPracticeRegression
         },
         lcp: {
           currentValue: currentLCP,

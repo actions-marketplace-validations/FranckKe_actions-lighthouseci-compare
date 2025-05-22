@@ -4,7 +4,6 @@
 ![CI](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/ci.yml/badge.svg)
 [![Check dist/](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/check-dist.yml/badge.svg)](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/check-dist.yml)
 [![CodeQL](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/adevinta/actions-lighthouseci-compare/actions/workflows/codeql-analysis.yml)
-[![Coverage](./badges/coverage.svg)](./badges/coverage.svg)
 
 This action helps you to based on the results of running Lighthouse CI, compare
 the current results with the ancestor commit results.

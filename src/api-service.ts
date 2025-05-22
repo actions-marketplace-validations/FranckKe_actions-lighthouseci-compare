@@ -24,6 +24,8 @@ export const getBuilds = async ({
       `Basic ${btoa(`${basicAuthUsername}:${basicAuthPassword}`)}`
     )
   }
+  console.log('buildListResponse')
+
   const buildListResponse = await fetch(BUILD_LIST_URL, {
     headers: basicAuthHeaders
   })
@@ -36,7 +38,10 @@ export const getBuilds = async ({
       `[api-service][ERROR]: Could not get builds from LHCI API${err}`
     )
   }
+
+  console.log('builds')
   const builds = (await buildListResponse.json()) as BuildInterface[]
+  console.log('builds done')
 
   // find the build that matches the commit hash
   const build: BuildInterface = builds.filter(
@@ -47,6 +52,9 @@ export const getBuilds = async ({
       `[api-service][ERROR]: Could not find build for commit hash {${CURRENT_COMMIT_SHA}}`
     )
   }
+
+  console.log('responseAncestor')
+
   // get the ancestor of the build from the lighthouse-ci API
   const responseAncestor = await fetch(
     `${PROJECT_URL}/builds/${build.id}/ancestor`,
@@ -54,6 +62,8 @@ export const getBuilds = async ({
       headers: basicAuthHeaders
     }
   )
+  console.log('responseAncestor done')
+
   if (!responseAncestor.ok) {
     let err = ''
     if (responseAncestor.status && responseAncestor.statusText) {
@@ -63,12 +73,15 @@ export const getBuilds = async ({
       `[api-service][ERROR]: Could not get ancestor build for build {${build.id}}${err}`
     )
   }
+  console.log('ancestorBuild')
+
   const ancestorBuild: BuildInterface = await responseAncestor.json()
   if (!ancestorBuild?.id) {
     throw new Error(
       `[api-service][ERROR]: Could not find ancestor build for build {${build.id}}`
     )
   }
+  console.log('ancestorBuild done', ancestorBuild)
   return { build, ancestorBuild }
 }
 
@@ -95,6 +108,8 @@ export const getLighthouseCIRuns = async ({
       `Basic ${btoa(`${basicAuthUsername}:${basicAuthPassword}`)}`
     )
   }
+  console.log('getLighthouseCIRuns')
+
   const [runResponse, ancestorRunResponse] = await Promise.all([
     fetch(`${PROJECT_URL}/builds/${buildId}/runs?representative=true`, {
       headers: basicAuthHeaders
@@ -103,6 +118,11 @@ export const getLighthouseCIRuns = async ({
       headers: basicAuthHeaders
     })
   ])
+  console.log(
+    'getLighthouseCIRuns done',
+    JSON.stringify(runResponse),
+    JSON.stringify(ancestorRunResponse)
+  )
   if (!runResponse.ok || !ancestorRunResponse.ok) {
     throw new Error(`[api-service][ERROR]: Could not get runs from LHCI API`)
   }
@@ -111,5 +131,6 @@ export const getLighthouseCIRuns = async ({
     runResponse.json() as unknown as RunInterface[],
     ancestorRunResponse.json() as unknown as RunInterface[]
   ])
+
   return { runs, ancestorRuns }
 }

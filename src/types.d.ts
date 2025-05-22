@@ -46,6 +46,9 @@ export interface ComparedRunInterface {
 }
 export interface ComparisonResultsInterface {
   performance: ComparedRunInterface
+  bestPractices: ComparedRunInterface
+  seo: ComparedRunInterface
+  accessibility: ComparedRunInterface
   lcp: ComparedRunInterface
   cls: ComparedRunInterface
   tbt: ComparedRunInterface

@@ -1,4 +1,4 @@
-name: 'Lighthouse CI Compare Action'
+name: 'Lighthouse CI Compare Action - debug'
 description:
   'Compare two Lighthouse CI builds and create an object and a Markdown Table
   with the differences.'
