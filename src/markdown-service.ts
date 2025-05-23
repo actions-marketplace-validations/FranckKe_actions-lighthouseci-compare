@@ -12,29 +12,12 @@ export interface MarkdownTableCellInterface {
 export const getMarkdownTableCell = ({
   currentValue,
   isRegression,
-  diffValue,
-  metricType
+  diffValue
 }: MarkdownTableCellInterface): string => {
-  switch (metricType) {
-    case 'performance':
-    case 'accessibility':
-    case 'seo':
-    case 'bestPractices':
-    case 'cls':
-      return `${currentValue} ${isRegression ? '🔴' : '🟢'} (${
-        isRegression ? '+' : ''
-      } ${diffValue})`
-    case 'lcp':
-    case 'tbt':
-      return `${currentValue} ms ${isRegression ? '🔴' : '🟢'} (${
-        isRegression ? '+' : ''
-      }${diffValue} ms)`
-    default:
-      return ''
-  }
+  return `${currentValue} ${isRegression ? '🔴' : '🟢'} ${diffValue === 0 ? '' : '\n '}${diffValue > 0 ? '+' : ''}`
 }
 
-export const createMarkdownTableRow = ({
+export const createMarkdownTableRowSummary = ({
   url,
   comparedMetrics,
   link
@@ -44,7 +27,7 @@ export const createMarkdownTableRow = ({
   link: string
 }): string => {
   const urlPathname = new URL(url).pathname
-  const { performance, bestPractices, accessibility, seo, lcp, tbt, cls } =
+  const { performance, bestPractices, accessibility, seo } =
     comparedMetrics[urlPathname]
   return `| [${new URL(url).pathname}](${url}) | ${getMarkdownTableCell({
     currentValue: performance.currentValue,
@@ -70,7 +53,21 @@ export const createMarkdownTableRow = ({
     diffValue: bestPractices.diff,
     metricType: 'bestPractices',
     metricUnit: ''
-  })} | ${getMarkdownTableCell({
+  })} | [Rep](${link}) |`
+}
+
+export const createMarkdownTableRowDetails = ({
+  url,
+  comparedMetrics,
+  link
+}: {
+  comparedMetrics: ComparisonResultsByURLInterface
+  url: string
+  link: string
+}): string => {
+  const urlPathname = new URL(url).pathname
+  const { lcp, tbt, cls } = comparedMetrics[urlPathname]
+  return `| [${new URL(url).pathname}](${url}) | ${getMarkdownTableCell({
     currentValue: lcp.currentValue,
     isRegression: lcp.isRegression,
     diffValue: lcp.diff,
@@ -90,7 +87,7 @@ export const createMarkdownTableRow = ({
     metricType: 'tbt'
   })} | [Rep](${link}) |`
 }
-/* istanbul ignore next */
+
 export const formatReportComparisonAsMarkdown = ({
   comparedMetrics,
   inputPath
@@ -99,12 +96,25 @@ export const formatReportComparisonAsMarkdown = ({
   inputPath: string
 }): string => {
   const comparison = getComparisonLinksObject({ inputPath })
-  return `
-| URL | Perf | A11y | SEO | Best P. | LCP | CLS | TBT | Report |
+  const comparisonSummary = `
+| URL | Perf | A11y | SEO | Best P. | Report |
+|:--- |:---: | :---:| :---:| :---:| :---:|
 ${Object.entries(comparison)
   .map(([url, link]) => {
-    return createMarkdownTableRow({ url, comparedMetrics, link })
+    return createMarkdownTableRowSummary({ url, comparedMetrics, link })
   })
   .join('\n')}
 `.toString()
+
+  const comparisonDetails = `
+| URL | Perf | A11y | SEO | Best P. | Report |
+|:--- |:---: | :---:| :---:| :---:| :---:|
+${Object.entries(comparison)
+  .map(([url, link]) => {
+    return createMarkdownTableRowDetails({ url, comparedMetrics, link })
+  })
+  .join('\n')}
+`.toString()
+
+  return `# Lighthouse Report Comparison\n\n Lighthouse reports are likely to vary between runs ## Summary\n${comparisonSummary}\n\n## Details\n${comparisonDetails}`
 }

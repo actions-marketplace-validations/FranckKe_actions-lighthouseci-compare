@@ -33,9 +33,7 @@ export async function run(): Promise<void> {
       inputs,
       debug: core.debug
     })
-    /* istanbul ignore next */
     core.setOutput('markdown', markdownResult)
-    /* istanbul ignore next */
     core.setOutput('comparedMetrics', comparedMetrics)
     core.setOutput('status', 'success')
     core.setOutput('failReason', '')
@@ -93,7 +91,6 @@ export const executeRun = async ({
   })
   if (core.isDebug()) {
     debug('Printing markdown result and compared metrics...')
-    /* istanbul ignore next */
     debug(`Markdown Result: \n${markdownResult}`)
   }
 
