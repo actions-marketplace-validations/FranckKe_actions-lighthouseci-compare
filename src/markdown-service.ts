@@ -10,12 +10,33 @@ export interface MarkdownTableCellInterface {
 }
 
 export const getMarkdownTableCell = ({
+  metricType,
   currentValue,
   isRegression,
   metricUnit,
   diffValue
 }: MarkdownTableCellInterface): string => {
-  return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'}<br/> ${diffValue > 0 ? '+' : ''}${metricUnit}`
+  let diff = ''
+  if (
+    (metricType === 'performance' ||
+      metricType === 'accessibility' ||
+      metricType === 'bestPractices' ||
+      metricType === 'seo') &&
+    currentValue === 100
+  ) {
+    if (diffValue === 0) {
+      diff = ''
+    } else {
+      diff = ` (${diffValue >= 0 ? '+' : ''}${diffValue})`
+    }
+    return `${currentValue} 🎉 ${diff}`
+  }
+  diff = ''
+  if (diffValue !== 0) {
+    diff = `<br/>${diffValue >= 0 ? '+' : ''}${diffValue}${metricUnit}`
+  }
+
+  return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'}${diff}`
 }
 
 export const createMarkdownTableRowSummary = ({
@@ -54,7 +75,7 @@ export const createMarkdownTableRowSummary = ({
     diffValue: bestPractices.diff,
     metricType: 'bestPractices',
     metricUnit: ''
-  })} | [Rep](${link}) |`
+  })} | [Link](${link}) |`
 }
 
 export const createMarkdownTableRowDetails = ({
@@ -110,7 +131,7 @@ export const formatReportComparisonAsMarkdown = ({
 }): string => {
   const comparison = getComparisonLinksObject({ inputPath })
   const comparisonSummary = `
-| URL | Perf | A11y | SEO | Best Practice | Report |
+| URL | Performance | Accessibility | SEO | Best Practice | Report |
 |:--- |:---: | :---:| :---:| :---:| :---:|
 ${Object.entries(comparison)
   .map(([url, link]) => {
@@ -120,7 +141,7 @@ ${Object.entries(comparison)
 `.toString()
 
   const comparisonDetails = `
-| URL | FCP | LCP | CLS | TBT | Speed I. | Report |
+| URL | FCP | LCP | CLS | TBT | SI | Report |
 |:--- |:---: | :---:| :---:| :---:| :---:| :---:|
 ${Object.entries(comparison)
   .map(([url, link]) => {
@@ -129,5 +150,24 @@ ${Object.entries(comparison)
   .join('\n')}
 `.toString()
 
-  return `# Lighthouse Report Comparison\n\n Lighthouse reports are likely to vary between runs \n\n## Summary\n${comparisonSummary}\n\n## Details\n${comparisonDetails} \n\n## Glossary\n\n- **FCP**: First Contentful Paint - measures loading performance. \n- **LCP**: Largest Contentful Paint - measures loading performance. \n- **CLS**: Cumulative Layout Shift - measures visual stability. \n- **TBT**: Total Blocking Time - measures interactivity. \n- **Speed Index**: measures how quickly the contents of a page are visibly populated. \n- **A11y**: Accessibility - measures how accessible the page is. \n- **Best P.**: Best Practices - measures adherence to best practices. \n- **SEO**: Search Engine Optimization - measures how well the page is optimized for search engines. \n`
+  return `# LighthouseCI Report Comparison
+  
+  Comparing the current commit with the commit the PR is based on.
+
+  Lighthouse reports are likely to vary between runs, sometimes up to **+-10** points(!). Increasing LighthouseCI runs may improve the accuracy of the results at a resource and time cost.
+  
+  ## Summary
+  ${comparisonSummary}
+  
+  ## Details
+  ${comparisonDetails} 
+  
+  ## Glossary
+  
+  - **FCP**: First Contentful Paint - measures loading performance
+  - **LCP**: Largest Contentful Paint - measures loading performance
+  - **CLS**: Cumulative Layout Shift - measures visual stability
+  - **TBT**: Total Blocking Time - measures interactivity
+  - **SI**: Speed Index - measures how quickly the contents of a page are visibly populated
+  `
 }

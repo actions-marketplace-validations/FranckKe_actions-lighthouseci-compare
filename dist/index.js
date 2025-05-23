@@ -25774,9 +25774,102 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getComparisonLinksObject = exports.readFileAsJson = exports.compareLHRs = void 0;
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 const fs_1 = __importDefault(__nccwpck_require__(9896));
 const path_1 = __importDefault(__nccwpck_require__(6928));
 const core = __importStar(__nccwpck_require__(7484));
+const metricsToProcess = [
+    {
+        outputKey: 'performance',
+        lhrKey: 'performance',
+        type: 'category',
+        precision: 0,
+        higherIsBetter: true
+    },
+    {
+        outputKey: 'seo',
+        lhrKey: 'seo',
+        type: 'category',
+        precision: 0,
+        higherIsBetter: true
+    },
+    {
+        outputKey: 'accessibility',
+        lhrKey: 'accessibility',
+        type: 'category',
+        precision: 0,
+        higherIsBetter: true
+    },
+    {
+        outputKey: 'bestPractices',
+        lhrKey: 'best-practices',
+        type: 'category',
+        precision: 0,
+        higherIsBetter: true
+    },
+    {
+        outputKey: 'lcp',
+        lhrKey: 'largest-contentful-paint',
+        type: 'audit',
+        precision: 0,
+        higherIsBetter: false
+    },
+    {
+        outputKey: 'fcp',
+        lhrKey: 'first-contentful-paint',
+        type: 'audit',
+        precision: 0,
+        higherIsBetter: false
+    },
+    {
+        outputKey: 'tbt',
+        lhrKey: 'total-blocking-time',
+        type: 'audit',
+        precision: 0,
+        higherIsBetter: false
+    },
+    {
+        outputKey: 'cls',
+        lhrKey: 'cumulative-layout-shift',
+        type: 'audit',
+        precision: 3,
+        higherIsBetter: false
+    },
+    {
+        outputKey: 'speedIndex',
+        lhrKey: 'speed-index',
+        type: 'audit',
+        precision: 0,
+        higherIsBetter: false
+    }
+];
+function processMetric(config, currentLHR, previousLHR) {
+    let currentRawValue;
+    let previousRawValue;
+    if (config.type === 'category') {
+        currentRawValue = currentLHR.categories[config.lhrKey]?.score;
+        previousRawValue = previousLHR.categories[config.lhrKey]?.score;
+    }
+    else {
+        // audit
+        currentRawValue = currentLHR.audits[config.lhrKey]?.numericValue;
+        previousRawValue = previousLHR.audits[config.lhrKey]?.numericValue;
+    }
+    let currentValue = currentRawValue ?? 0;
+    let previousValue = previousRawValue ?? 0;
+    if (config.type === 'category') {
+        currentValue = parseFloat((currentValue * 100).toFixed(config.precision));
+        previousValue = parseFloat((previousValue * 100).toFixed(config.precision));
+    }
+    else {
+        currentValue = parseFloat(currentValue.toFixed(config.precision));
+        previousValue = parseFloat(previousValue.toFixed(config.precision));
+    }
+    const diff = parseFloat((currentValue - previousValue).toFixed(config.precision));
+    const isRegression = config.higherIsBetter ? diff < 0 : diff > 0;
+    return { currentValue, previousValue, diff, isRegression };
+}
 const compareLHRs = ({ runs, ancestorRuns }) => {
     const parseLHR = (run) => {
         const parsedLHR = { ...run };
@@ -25808,116 +25901,48 @@ const compareLHRs = ({ runs, ancestorRuns }) => {
     const buildLHRObject = {};
     for (const run of buildLHR) {
         // find the ancestor run that matches the current run URL
-        const ancestorRun = ancestorBuildLHR.filter(currentAncestorRun => currentAncestorRun.url === run.url)[0];
-        if (typeof run.lhr !== 'string' || typeof ancestorRun.lhr !== 'string') {
-            const runLHR = run.lhr;
-            const ancestorRunLHR = ancestorRun.lhr;
-            // get the performance score, lcp, tbt and cls of the current run and the ancestor run and compare them
-            // Performance
-            const performance = runLHR.categories.performance;
-            const ancestorPerformance = ancestorRunLHR.categories.performance;
-            const currentPerformance = parseFloat(((performance.score ? performance.score : 0) * 100).toFixed(0));
-            const previousPerformance = parseFloat(((ancestorPerformance.score ? ancestorPerformance.score : 0) * 100).toFixed(0));
-            const diffPerformance = parseFloat((currentPerformance - previousPerformance).toFixed(0));
-            const isPerformanceRegression = diffPerformance < 0;
-            // SEO
-            const seo = runLHR.categories.seo;
-            const ancestorSEO = ancestorRunLHR.categories.seo;
-            const currentSEO = parseFloat(((seo.score ? seo.score : 0) * 100).toFixed(0));
-            const previousSEO = parseFloat(((ancestorSEO.score ? ancestorSEO.score : 0) * 100).toFixed(0));
-            const diffSEO = parseFloat((currentSEO - previousSEO).toFixed(0));
-            const isSEORegression = diffSEO < 0;
-            // Accessibility
-            const accessibility = runLHR.categories.accessibility;
-            const ancestorAccessibility = ancestorRunLHR.categories.accessibility;
-            const currentAccessibility = parseFloat(((accessibility.score ? accessibility.score : 0) * 100).toFixed(0));
-            const previousAccessibility = parseFloat(((ancestorAccessibility.score ? ancestorAccessibility.score : 0) * 100).toFixed(0));
-            const diffAccessibility = parseFloat((currentAccessibility - previousAccessibility).toFixed(0));
-            const isAccessibilityRegression = diffAccessibility < 0;
-            // Best Practices
-            const bestPractice = runLHR.categories['best-practices'];
-            const ancestorBestPractice = ancestorRunLHR.categories['best-practices'];
-            const currentBestPractice = parseFloat(((bestPractice.score ? bestPractice.score : 0) * 100).toFixed(0));
-            const previousBestPractice = parseFloat(((ancestorBestPractice.score ? ancestorBestPractice.score : 0) * 100).toFixed(0));
-            const diffBestPractice = parseFloat((currentBestPractice - previousBestPractice).toFixed(0));
-            const isBestPracticeRegression = diffBestPractice < 0;
-            //  LCP - Largest Contentful Paint
-            const lcp = runLHR.audits['largest-contentful-paint'];
-            const ancestorLCP = ancestorRunLHR.audits['largest-contentful-paint'];
-            const currentLCP = parseFloat((lcp.numericValue ? lcp.numericValue : 0).toFixed(0));
-            const previousLCP = parseFloat((ancestorLCP.numericValue ? ancestorLCP.numericValue : 0).toFixed(0));
-            const diffLCP = currentLCP - previousLCP;
-            const isLCPRegression = diffLCP > 0;
-            // TBT - Total Blocking Time
-            const tbt = runLHR.audits['total-blocking-time'];
-            const ancestorTBT = ancestorRunLHR.audits['total-blocking-time'];
-            const currentTBT = parseFloat((tbt.numericValue ? tbt.numericValue : 0).toFixed(0));
-            const previousTBT = parseFloat((ancestorTBT.numericValue ? ancestorTBT.numericValue : 0).toFixed(0));
-            const diffTBT = currentTBT - previousTBT;
-            const isTBTRegression = diffTBT > 0;
-            // CLS - Cumulative Layout Shift
-            const cls = runLHR.audits['cumulative-layout-shift'];
-            const ancestorCLS = ancestorRunLHR.audits['cumulative-layout-shift'];
-            const currentCLS = parseFloat((cls.numericValue ? cls.numericValue : 0).toFixed(3));
-            const previousCLS = parseFloat((ancestorCLS.numericValue ? ancestorCLS.numericValue : 0).toFixed(3));
-            const diffCLS = currentCLS - previousCLS;
-            const isCLSRegression = diffCLS > 0;
-            // we will simplify the url to only be the pathname
-            console.log('run.url', run.url);
-            // if self hosting, the url might be using an invalid port like so:  localhost:PORT
-            // if run.url contains the string "PORT" replace it with 3000
+        const ancestorRun = ancestorBuildLHR.find(currentAncestorRun => currentAncestorRun.url === run.url);
+        if (ancestorRun &&
+            run.lhr &&
+            typeof run.lhr === 'object' &&
+            ancestorRun.lhr &&
+            typeof ancestorRun.lhr === 'object') {
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+            const currentLHR = run.lhr;
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+            const previousLHR = ancestorRun.lhr;
+            const metricResults = {};
+            for (const metricConfig of metricsToProcess) {
+                const result = processMetric(metricConfig, currentLHR, previousLHR);
+                metricResults[metricConfig.outputKey] = result;
+            }
+            if (core.isDebug()) {
+                core.debug(`Processing URL for LHR comparison: ${run.url}`);
+            }
             let urlToUse = run.url;
             if (run.url.includes('PORT')) {
                 urlToUse = run.url.replace(/PORT/g, '3000');
-            }
-            const url = new URL(urlToUse);
-            const urlWithoutPort = url.toString();
-            console.log('urlWithoutPort', urlWithoutPort);
-            const urlKey = new URL(urlToUse).pathname;
-            buildLHRObject[urlKey] = {
-                performance: {
-                    currentValue: currentPerformance,
-                    previousValue: previousPerformance,
-                    diff: diffPerformance,
-                    isRegression: isPerformanceRegression
-                },
-                seo: {
-                    currentValue: currentSEO,
-                    previousValue: previousSEO,
-                    diff: diffSEO,
-                    isRegression: isSEORegression
-                },
-                accessibility: {
-                    currentValue: currentAccessibility,
-                    previousValue: previousAccessibility,
-                    diff: diffAccessibility,
-                    isRegression: isAccessibilityRegression
-                },
-                bestPractices: {
-                    currentValue: currentBestPractice,
-                    previousValue: previousBestPractice,
-                    diff: diffBestPractice,
-                    isRegression: isBestPracticeRegression
-                },
-                lcp: {
-                    currentValue: currentLCP,
-                    previousValue: previousLCP,
-                    diff: diffLCP,
-                    isRegression: isLCPRegression
-                },
-                cls: {
-                    currentValue: currentCLS,
-                    previousValue: previousCLS,
-                    diff: diffCLS,
-                    isRegression: isCLSRegression
-                },
-                tbt: {
-                    currentValue: currentTBT,
-                    previousValue: previousTBT,
-                    diff: diffTBT,
-                    isRegression: isTBTRegression
+                if (core.isDebug()) {
+                    core.debug(`Adjusted URL from containing 'PORT' to use port 3000: ${urlToUse} (original: ${run.url})`);
                 }
-            };
+            }
+            const urlKey = new URL(urlToUse).pathname;
+            buildLHRObject[urlKey] = metricResults;
+        }
+        else {
+            if (core.isDebug()) {
+                let reason = `Skipping LHR comparison for URL: ${run.url}.`;
+                if (!ancestorRun) {
+                    reason += ' Ancestor run not found.';
+                }
+                else {
+                    if (!run.lhr || typeof run.lhr !== 'object')
+                        reason += ' Current LHR is missing or not an object.';
+                    if (!ancestorRun.lhr || typeof ancestorRun.lhr !== 'object')
+                        reason += ' Ancestor LHR is missing or not an object.';
+                }
+                core.debug(reason);
+            }
         }
     }
     return buildLHRObject;
@@ -26050,18 +26075,16 @@ const executeRun = async ({ inputs, debug }) => {
         debug(`Ancestor Run: ${JSON.stringify(ancestorRuns, null, 2)}`);
     }
     const comparedMetrics = (0, compare_service_1.compareLHRs)({ runs, ancestorRuns });
-    if (core.isDebug()) {
-        debug('Printing compared metrics...');
-        debug(`Compared Results: ${comparedMetrics}`);
-    }
+    // if (core.isDebug()) {
+    debug(`Compared Results: ${comparedMetrics}`);
+    // }
     const markdownResult = (0, markdown_service_1.formatReportComparisonAsMarkdown)({
         comparedMetrics,
         inputPath: inputs.linksFilePath
     });
-    if (core.isDebug()) {
-        debug('Printing markdown result and compared metrics...');
-        debug(`Markdown Result: \n${markdownResult}`);
-    }
+    // if (core.isDebug()) {
+    debug(`Markdown Result: \n${markdownResult}`);
+    // }
     return { markdownResult, comparedMetrics };
 };
 exports.executeRun = executeRun;
@@ -26077,8 +26100,26 @@ exports.executeRun = executeRun;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.formatReportComparisonAsMarkdown = exports.createMarkdownTableRowDetails = exports.createMarkdownTableRowSummary = exports.getMarkdownTableCell = void 0;
 const compare_service_1 = __nccwpck_require__(3254);
-const getMarkdownTableCell = ({ currentValue, isRegression, diffValue }) => {
-    return `${currentValue} ${isRegression ? '🔴' : '🟢'} ${diffValue === 0 ? '' : '\n '}${diffValue > 0 ? '+' : ''}`;
+const getMarkdownTableCell = ({ metricType, currentValue, isRegression, metricUnit, diffValue }) => {
+    let diff = '';
+    if ((metricType === 'performance' ||
+        metricType === 'accessibility' ||
+        metricType === 'bestPractices' ||
+        metricType === 'seo') &&
+        currentValue === 100) {
+        if (diffValue === 0) {
+            diff = '';
+        }
+        else {
+            diff = ` (${diffValue >= 0 ? '+' : ''}${diffValue})`;
+        }
+        return `${currentValue} 🎉 ${diff}`;
+    }
+    diff = '';
+    if (diffValue !== 0) {
+        diff = `<br/>${diffValue >= 0 ? '+' : ''}${diffValue}${metricUnit}`;
+    }
+    return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'}${diff}`;
 };
 exports.getMarkdownTableCell = getMarkdownTableCell;
 const createMarkdownTableRowSummary = ({ url, comparedMetrics, link }) => {
@@ -26108,13 +26149,19 @@ const createMarkdownTableRowSummary = ({ url, comparedMetrics, link }) => {
         diffValue: bestPractices.diff,
         metricType: 'bestPractices',
         metricUnit: ''
-    })} | [Rep](${link}) |`;
+    })} | [Link](${link}) |`;
 };
 exports.createMarkdownTableRowSummary = createMarkdownTableRowSummary;
 const createMarkdownTableRowDetails = ({ url, comparedMetrics, link }) => {
     const urlPathname = new URL(url).pathname;
-    const { lcp, tbt, cls } = comparedMetrics[urlPathname];
+    const { fcp, lcp, tbt, cls, speedIndex } = comparedMetrics[urlPathname];
     return `| [${new URL(url).pathname}](${url}) | ${(0, exports.getMarkdownTableCell)({
+        currentValue: fcp.currentValue,
+        isRegression: fcp.isRegression,
+        diffValue: fcp.diff,
+        metricUnit: 'ms',
+        metricType: 'fcp'
+    })} | ${(0, exports.getMarkdownTableCell)({
         currentValue: lcp.currentValue,
         isRegression: lcp.isRegression,
         diffValue: lcp.diff,
@@ -26132,13 +26179,19 @@ const createMarkdownTableRowDetails = ({ url, comparedMetrics, link }) => {
         diffValue: tbt.diff,
         metricUnit: 'ms',
         metricType: 'tbt'
-    })} | [Rep](${link}) |`;
+    })} | ${(0, exports.getMarkdownTableCell)({
+        currentValue: speedIndex.currentValue,
+        isRegression: speedIndex.isRegression,
+        diffValue: speedIndex.diff,
+        metricUnit: 'ms',
+        metricType: 'speedIndex'
+    })} | [Link](${link}) |`;
 };
 exports.createMarkdownTableRowDetails = createMarkdownTableRowDetails;
 const formatReportComparisonAsMarkdown = ({ comparedMetrics, inputPath }) => {
     const comparison = (0, compare_service_1.getComparisonLinksObject)({ inputPath });
     const comparisonSummary = `
-| URL | Perf | A11y | SEO | Best P. | Report |
+| URL | Performance | Accessibility | SEO | Best Practice | Report |
 |:--- |:---: | :---:| :---:| :---:| :---:|
 ${Object.entries(comparison)
         .map(([url, link]) => {
@@ -26147,15 +26200,34 @@ ${Object.entries(comparison)
         .join('\n')}
 `.toString();
     const comparisonDetails = `
-| URL | Perf | A11y | SEO | Best P. | Report |
-|:--- |:---: | :---:| :---:| :---:| :---:|
+| URL | FCP | LCP | CLS | TBT | SI | Report |
+|:--- |:---: | :---:| :---:| :---:| :---:| :---:|
 ${Object.entries(comparison)
         .map(([url, link]) => {
         return (0, exports.createMarkdownTableRowDetails)({ url, comparedMetrics, link });
     })
         .join('\n')}
 `.toString();
-    return `# Lighthouse Report Comparison\n\n Lighthouse reports are likely to vary between runs ## Summary\n${comparisonSummary}\n\n## Details\n${comparisonDetails}`;
+    return `# LighthouseCI Report Comparison
+  
+  Comparing the current commit with the commit the PR is based on.
+
+  Lighthouse reports are likely to vary between runs, sometimes up to **+-10** points(!). Increasing LighthouseCI runs may improve the accuracy of the results at a resource and time cost.
+  
+  ## Summary
+  ${comparisonSummary}
+  
+  ## Details
+  ${comparisonDetails} 
+  
+  ## Glossary
+  
+  - **FCP**: First Contentful Paint - measures loading performance
+  - **LCP**: Largest Contentful Paint - measures loading performance
+  - **CLS**: Cumulative Layout Shift - measures visual stability
+  - **TBT**: Total Blocking Time - measures interactivity
+  - **SI**: Speed Index - measures how quickly the contents of a page are visibly populated
+  `;
 };
 exports.formatReportComparisonAsMarkdown = formatReportComparisonAsMarkdown;
 

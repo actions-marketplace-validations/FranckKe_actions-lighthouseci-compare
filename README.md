@@ -17,6 +17,7 @@ v1.1.6
 - Support for non valid port in Lighthouse report URLs for when testing against
   a local `/dist` in CI
 - Add accessibility, SEO and best practices metrics to the comparison
+- Add FCP and Speed Index metrics to the comparison
 
 ## Getting started
 

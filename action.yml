@@ -1,8 +1,8 @@
-name: 'Lighthouse CI Compare Action - self host'
+name: 'Lighthouse CI Compare Action - compatible with LHCI self-host server'
 description:
   'Compare two Lighthouse CI builds and create an object and a Markdown Table
   with the differences.'
-author: 'Danilo Velasquez'
+author: 'Danilo Velasquez/Franck Kerbiriou'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
@@ -43,7 +43,7 @@ inputs:
 # Define your outputs here.
 outputs:
   markdown:
-    description: 'The markdown table with the results'
+    description: 'Markdown explanations and comparison result tables'
   comparedMetrics:
     description:
       'An object with the results, in case you want to use it for something

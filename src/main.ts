@@ -81,18 +81,16 @@ export const executeRun = async ({
     debug(`Ancestor Run: ${JSON.stringify(ancestorRuns, null, 2)}`)
   }
   const comparedMetrics = compareLHRs({ runs, ancestorRuns })
-  if (core.isDebug()) {
-    debug('Printing compared metrics...')
-    debug(`Compared Results: ${comparedMetrics}`)
-  }
+  // if (core.isDebug()) {
+  debug(`Compared Results: ${comparedMetrics}`)
+  // }
   const markdownResult = formatReportComparisonAsMarkdown({
     comparedMetrics,
     inputPath: inputs.linksFilePath
   })
-  if (core.isDebug()) {
-    debug('Printing markdown result and compared metrics...')
-    debug(`Markdown Result: \n${markdownResult}`)
-  }
+  // if (core.isDebug()) {
+  debug(`Markdown Result: \n${markdownResult}`)
+  // }
 
   return { markdownResult, comparedMetrics }
 }

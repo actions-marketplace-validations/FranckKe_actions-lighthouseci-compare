@@ -4,10 +4,124 @@ import { ComparisonResultsInterface, RunInterface } from './types.d'
 import type Result from 'lighthouse/types/lhr/lhr'
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import type { Result as AuditResult } from 'lighthouse/types/lhr/audit-result'
 import fs from 'fs'
 import path from 'path'
 import * as core from '@actions/core'
+
+interface MetricConfig {
+  outputKey: keyof ComparisonResultsInterface
+  lhrKey: string // Corresponds to key in LHR categories or audits
+  type: 'category' | 'audit'
+  precision: number
+  higherIsBetter: boolean // True if a higher value is better (e.g., performance score)
+}
+
+const metricsToProcess: MetricConfig[] = [
+  {
+    outputKey: 'performance',
+    lhrKey: 'performance',
+    type: 'category',
+    precision: 0,
+    higherIsBetter: true
+  },
+  {
+    outputKey: 'seo',
+    lhrKey: 'seo',
+    type: 'category',
+    precision: 0,
+    higherIsBetter: true
+  },
+  {
+    outputKey: 'accessibility',
+    lhrKey: 'accessibility',
+    type: 'category',
+    precision: 0,
+    higherIsBetter: true
+  },
+  {
+    outputKey: 'bestPractices',
+    lhrKey: 'best-practices',
+    type: 'category',
+    precision: 0,
+    higherIsBetter: true
+  },
+  {
+    outputKey: 'lcp',
+    lhrKey: 'largest-contentful-paint',
+    type: 'audit',
+    precision: 0,
+    higherIsBetter: false
+  },
+  {
+    outputKey: 'fcp',
+    lhrKey: 'first-contentful-paint',
+    type: 'audit',
+    precision: 0,
+    higherIsBetter: false
+  },
+  {
+    outputKey: 'tbt',
+    lhrKey: 'total-blocking-time',
+    type: 'audit',
+    precision: 0,
+    higherIsBetter: false
+  },
+  {
+    outputKey: 'cls',
+    lhrKey: 'cumulative-layout-shift',
+    type: 'audit',
+    precision: 3,
+    higherIsBetter: false
+  },
+  {
+    outputKey: 'speedIndex',
+    lhrKey: 'speed-index',
+    type: 'audit',
+    precision: 0,
+    higherIsBetter: false
+  }
+]
+
+function processMetric(
+  config: MetricConfig,
+  currentLHR: Result,
+  previousLHR: Result
+): {
+  currentValue: number
+  previousValue: number
+  diff: number
+  isRegression: boolean
+} {
+  let currentRawValue: number | undefined | null
+  let previousRawValue: number | undefined | null
+
+  if (config.type === 'category') {
+    currentRawValue = currentLHR.categories[config.lhrKey]?.score
+    previousRawValue = previousLHR.categories[config.lhrKey]?.score
+  } else {
+    // audit
+    currentRawValue = currentLHR.audits[config.lhrKey]?.numericValue
+    previousRawValue = previousLHR.audits[config.lhrKey]?.numericValue
+  }
+
+  let currentValue = currentRawValue ?? 0
+  let previousValue = previousRawValue ?? 0
+
+  if (config.type === 'category') {
+    currentValue = parseFloat((currentValue * 100).toFixed(config.precision))
+    previousValue = parseFloat((previousValue * 100).toFixed(config.precision))
+  } else {
+    currentValue = parseFloat(currentValue.toFixed(config.precision))
+    previousValue = parseFloat(previousValue.toFixed(config.precision))
+  }
+
+  const diff = parseFloat(
+    (currentValue - previousValue).toFixed(config.precision)
+  )
+  const isRegression = config.higherIsBetter ? diff < 0 : diff > 0
+
+  return { currentValue, previousValue, diff, isRegression }
+}
 
 export const compareLHRs = ({
   runs,
@@ -53,212 +167,55 @@ export const compareLHRs = ({
   } = {}
   for (const run of buildLHR) {
     // find the ancestor run that matches the current run URL
-    const ancestorRun = ancestorBuildLHR.filter(
+    const ancestorRun = ancestorBuildLHR.find(
       currentAncestorRun => currentAncestorRun.url === run.url
-    )[0]
-    if (typeof run.lhr !== 'string' || typeof ancestorRun.lhr !== 'string') {
-      const runLHR: Result = run.lhr as Result
-      const ancestorRunLHR: Result = ancestorRun.lhr as Result
-      // get the performance score, lcp, tbt and cls of the current run and the ancestor run and compare them
-      // Performance
-      const performance: Result.Category = runLHR.categories.performance
-      const ancestorPerformance: Result.Category =
-        ancestorRunLHR.categories.performance
-      const currentPerformance = parseFloat(
-        ((performance.score ? performance.score : 0) * 100).toFixed(0)
-      )
-      const previousPerformance = parseFloat(
-        (
-          (ancestorPerformance.score ? ancestorPerformance.score : 0) * 100
-        ).toFixed(0)
-      )
-      const diffPerformance = parseFloat(
-        (currentPerformance - previousPerformance).toFixed(0)
-      )
-      const isPerformanceRegression = diffPerformance < 0
+    )
 
-      // SEO
-      const seo: Result.Category = runLHR.categories.seo
-      const ancestorSEO: Result.Category = ancestorRunLHR.categories.seo
-      const currentSEO = parseFloat(
-        ((seo.score ? seo.score : 0) * 100).toFixed(0)
-      )
-      const previousSEO = parseFloat(
-        ((ancestorSEO.score ? ancestorSEO.score : 0) * 100).toFixed(0)
-      )
-      const diffSEO = parseFloat((currentSEO - previousSEO).toFixed(0))
-      const isSEORegression = diffSEO < 0
+    if (
+      ancestorRun &&
+      run.lhr &&
+      typeof run.lhr === 'object' &&
+      ancestorRun.lhr &&
+      typeof ancestorRun.lhr === 'object'
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      const currentLHR: Result = run.lhr as Result
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      const previousLHR: Result = ancestorRun.lhr as Result
 
-      // Accessibility
-      const accessibility: Result.Category = runLHR.categories.accessibility
-      const ancestorAccessibility: Result.Category =
-        ancestorRunLHR.categories.accessibility
-      const currentAccessibility = parseFloat(
-        ((accessibility.score ? accessibility.score : 0) * 100).toFixed(0)
-      )
-      const previousAccessibility = parseFloat(
-        (
-          (ancestorAccessibility.score ? ancestorAccessibility.score : 0) * 100
-        ).toFixed(0)
-      )
-      const diffAccessibility = parseFloat(
-        (currentAccessibility - previousAccessibility).toFixed(0)
-      )
-      const isAccessibilityRegression = diffAccessibility < 0
+      const metricResults: Partial<ComparisonResultsInterface> = {}
 
-      // Best Practices
-      const bestPractice: Result.Category = runLHR.categories['best-practices']
-      const ancestorBestPractice: Result.Category =
-        ancestorRunLHR.categories['best-practices']
-      const currentBestPractice = parseFloat(
-        ((bestPractice.score ? bestPractice.score : 0) * 100).toFixed(0)
-      )
-      const previousBestPractice = parseFloat(
-        (
-          (ancestorBestPractice.score ? ancestorBestPractice.score : 0) * 100
-        ).toFixed(0)
-      )
-      const diffBestPractice = parseFloat(
-        (currentBestPractice - previousBestPractice).toFixed(0)
-      )
-      const isBestPracticeRegression = diffBestPractice < 0
+      for (const metricConfig of metricsToProcess) {
+        const result = processMetric(metricConfig, currentLHR, previousLHR)
+        metricResults[metricConfig.outputKey] = result
+      }
 
-      //  LCP - Largest Contentful Paint
-      const lcp: AuditResult = runLHR.audits['largest-contentful-paint']
-      const ancestorLCP: AuditResult =
-        ancestorRunLHR.audits['largest-contentful-paint']
-      const currentLCP = parseFloat(
-        (lcp.numericValue ? lcp.numericValue : 0).toFixed(0)
-      )
-      const previousLCP = parseFloat(
-        (ancestorLCP.numericValue ? ancestorLCP.numericValue : 0).toFixed(0)
-      )
-      const diffLCP = currentLCP - previousLCP
-      const isLCPRegression = diffLCP > 0
-
-      //  FCP - First Contentful Paint
-      const fcp: AuditResult = runLHR.audits['first-contentful-paint']
-      const ancestorFCP: AuditResult =
-        ancestorRunLHR.audits['first-contentful-paint']
-      const currentFCP = parseFloat(
-        (fcp.numericValue ? fcp.numericValue : 0).toFixed(0)
-      )
-      const previousFCP = parseFloat(
-        (ancestorFCP.numericValue ? ancestorFCP.numericValue : 0).toFixed(0)
-      )
-      const diffFCP = currentFCP - previousFCP
-      const isFCPRegression = diffFCP > 0
-
-      // TBT - Total Blocking Time
-      const tbt: AuditResult = runLHR.audits['total-blocking-time']
-      const ancestorTBT: AuditResult =
-        ancestorRunLHR.audits['total-blocking-time']
-      const currentTBT = parseFloat(
-        (tbt.numericValue ? tbt.numericValue : 0).toFixed(0)
-      )
-      const previousTBT = parseFloat(
-        (ancestorTBT.numericValue ? ancestorTBT.numericValue : 0).toFixed(0)
-      )
-      const diffTBT = currentTBT - previousTBT
-      const isTBTRegression = diffTBT > 0
-
-      // CLS - Cumulative Layout Shift
-      const cls: AuditResult = runLHR.audits['cumulative-layout-shift']
-      const ancestorCLS: AuditResult =
-        ancestorRunLHR.audits['cumulative-layout-shift']
-      const currentCLS = parseFloat(
-        (cls.numericValue ? cls.numericValue : 0).toFixed(3)
-      )
-      const previousCLS = parseFloat(
-        (ancestorCLS.numericValue ? ancestorCLS.numericValue : 0).toFixed(3)
-      )
-      const diffCLS = currentCLS - previousCLS
-      const isCLSRegression = diffCLS > 0
-
-      // Speed Index
-      const speedIndex: AuditResult = runLHR.audits['speed-index']
-      const ancestorSpeedIndex: AuditResult =
-        ancestorRunLHR.audits['speed-index']
-      const currentSpeedIndex = parseFloat(
-        (speedIndex.numericValue ? speedIndex.numericValue : 0).toFixed(3)
-      )
-      const previousSpeedIndex = parseFloat(
-        (ancestorSpeedIndex.numericValue
-          ? ancestorSpeedIndex.numericValue
-          : 0
-        ).toFixed(3)
-      )
-      const diffSpeedIndex = currentSpeedIndex - previousSpeedIndex
-      const isSpeedIndexRegression = diffSpeedIndex > 0
-
-      // we will simplify the url to only be the pathname
-      console.log('run.url', run.url)
-      // if self hosting, the url might be using an invalid port like so:  localhost:PORT
-      // if run.url contains the string "PORT" replace it with 3000
+      if (core.isDebug()) {
+        core.debug(`Processing URL for LHR comparison: ${run.url}`)
+      }
       let urlToUse = run.url
       if (run.url.includes('PORT')) {
         urlToUse = run.url.replace(/PORT/g, '3000')
-      }
-      const url = new URL(urlToUse)
-      const urlWithoutPort = url.toString()
-      console.log('urlWithoutPort', urlWithoutPort)
-
-      const urlKey = new URL(urlToUse).pathname
-      buildLHRObject[urlKey] = {
-        performance: {
-          currentValue: currentPerformance,
-          previousValue: previousPerformance,
-          diff: diffPerformance,
-          isRegression: isPerformanceRegression
-        },
-        seo: {
-          currentValue: currentSEO,
-          previousValue: previousSEO,
-          diff: diffSEO,
-          isRegression: isSEORegression
-        },
-        accessibility: {
-          currentValue: currentAccessibility,
-          previousValue: previousAccessibility,
-          diff: diffAccessibility,
-          isRegression: isAccessibilityRegression
-        },
-        bestPractices: {
-          currentValue: currentBestPractice,
-          previousValue: previousBestPractice,
-          diff: diffBestPractice,
-          isRegression: isBestPracticeRegression
-        },
-        fcp: {
-          currentValue: currentFCP,
-          previousValue: previousFCP,
-          diff: diffFCP,
-          isRegression: isFCPRegression
-        },
-        lcp: {
-          currentValue: currentLCP,
-          previousValue: previousLCP,
-          diff: diffLCP,
-          isRegression: isLCPRegression
-        },
-        cls: {
-          currentValue: currentCLS,
-          previousValue: previousCLS,
-          diff: diffCLS,
-          isRegression: isCLSRegression
-        },
-        tbt: {
-          currentValue: currentTBT,
-          previousValue: previousTBT,
-          diff: diffTBT,
-          isRegression: isTBTRegression
-        },
-        speedIndex: {
-          currentValue: currentSpeedIndex,
-          previousValue: previousSpeedIndex,
-          diff: diffSpeedIndex,
-          isRegression: isSpeedIndexRegression
+        if (core.isDebug()) {
+          core.debug(
+            `Adjusted URL from containing 'PORT' to use port 3000: ${urlToUse} (original: ${run.url})`
+          )
         }
+      }
+      const urlKey = new URL(urlToUse).pathname
+      buildLHRObject[urlKey] = metricResults as ComparisonResultsInterface
+    } else {
+      if (core.isDebug()) {
+        let reason = `Skipping LHR comparison for URL: ${run.url}.`
+        if (!ancestorRun) {
+          reason += ' Ancestor run not found.'
+        } else {
+          if (!run.lhr || typeof run.lhr !== 'object')
+            reason += ' Current LHR is missing or not an object.'
+          if (!ancestorRun.lhr || typeof ancestorRun.lhr !== 'object')
+            reason += ' Ancestor LHR is missing or not an object.'
+        }
+        core.debug(reason)
       }
     }
   }
