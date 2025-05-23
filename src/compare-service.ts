@@ -122,6 +122,7 @@ export const compareLHRs = ({
         (currentBestPractice - previousBestPractice).toFixed(0)
       )
       const isBestPracticeRegression = diffBestPractice < 0
+
       //  LCP - Largest Contentful Paint
       const lcp: AuditResult = runLHR.audits['largest-contentful-paint']
       const ancestorLCP: AuditResult =
@@ -134,6 +135,19 @@ export const compareLHRs = ({
       )
       const diffLCP = currentLCP - previousLCP
       const isLCPRegression = diffLCP > 0
+
+      //  FCP - First Contentful Paint
+      const fcp: AuditResult = runLHR.audits['first-contentful-paint']
+      const ancestorFCP: AuditResult =
+        ancestorRunLHR.audits['first-contentful-paint']
+      const currentFCP = parseFloat(
+        (fcp.numericValue ? fcp.numericValue : 0).toFixed(0)
+      )
+      const previousFCP = parseFloat(
+        (ancestorFCP.numericValue ? ancestorFCP.numericValue : 0).toFixed(0)
+      )
+      const diffFCP = currentFCP - previousFCP
+      const isFCPRegression = diffFCP > 0
 
       // TBT - Total Blocking Time
       const tbt: AuditResult = runLHR.audits['total-blocking-time']
@@ -160,6 +174,22 @@ export const compareLHRs = ({
       )
       const diffCLS = currentCLS - previousCLS
       const isCLSRegression = diffCLS > 0
+
+      // Speed Index
+      const speedIndex: AuditResult = runLHR.audits['speed-index']
+      const ancestorSpeedIndex: AuditResult =
+        ancestorRunLHR.audits['speed-index']
+      const currentSpeedIndex = parseFloat(
+        (speedIndex.numericValue ? speedIndex.numericValue : 0).toFixed(3)
+      )
+      const previousSpeedIndex = parseFloat(
+        (ancestorSpeedIndex.numericValue
+          ? ancestorSpeedIndex.numericValue
+          : 0
+        ).toFixed(3)
+      )
+      const diffSpeedIndex = currentSpeedIndex - previousSpeedIndex
+      const isSpeedIndexRegression = diffSpeedIndex > 0
 
       // we will simplify the url to only be the pathname
       console.log('run.url', run.url)
@@ -199,6 +229,12 @@ export const compareLHRs = ({
           diff: diffBestPractice,
           isRegression: isBestPracticeRegression
         },
+        fcp: {
+          currentValue: currentFCP,
+          previousValue: previousFCP,
+          diff: diffFCP,
+          isRegression: isFCPRegression
+        },
         lcp: {
           currentValue: currentLCP,
           previousValue: previousLCP,
@@ -216,6 +252,12 @@ export const compareLHRs = ({
           previousValue: previousTBT,
           diff: diffTBT,
           isRegression: isTBTRegression
+        },
+        speedIndex: {
+          currentValue: currentSpeedIndex,
+          previousValue: previousSpeedIndex,
+          diff: diffSpeedIndex,
+          isRegression: isSpeedIndexRegression
         }
       }
     }

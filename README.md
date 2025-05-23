@@ -34,7 +34,7 @@ v1.1.6
 ```yaml
 jobs:
   lighthouseci:
-    # If commenting comparaison results in the PR
+    # If commenting comparason results in the PR
     permissions:
       pull-requests: write
       contents: read

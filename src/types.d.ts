@@ -52,6 +52,8 @@ export interface ComparisonResultsInterface {
   lcp: ComparedRunInterface
   cls: ComparedRunInterface
   tbt: ComparedRunInterface
+  fcp: ComparedRunInterface
+  speedIndex: ComparedRunInterface
 }
 export interface ComparisonResultsByURLInterface {
   [key: string]: ComparisonResultsInterface

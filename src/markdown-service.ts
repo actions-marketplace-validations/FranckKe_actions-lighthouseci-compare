@@ -12,9 +12,10 @@ export interface MarkdownTableCellInterface {
 export const getMarkdownTableCell = ({
   currentValue,
   isRegression,
+  metricUnit,
   diffValue
 }: MarkdownTableCellInterface): string => {
-  return `${currentValue} ${isRegression ? '🔴' : '🟢'} ${diffValue === 0 ? '' : '\n '}${diffValue > 0 ? '+' : ''}`
+  return `${currentValue}${metricUnit} ${isRegression ? '🔴' : '🟢'}<br/> ${diffValue > 0 ? '+' : ''}${metricUnit}`
 }
 
 export const createMarkdownTableRowSummary = ({
@@ -66,8 +67,14 @@ export const createMarkdownTableRowDetails = ({
   link: string
 }): string => {
   const urlPathname = new URL(url).pathname
-  const { lcp, tbt, cls } = comparedMetrics[urlPathname]
+  const { fcp, lcp, tbt, cls, speedIndex } = comparedMetrics[urlPathname]
   return `| [${new URL(url).pathname}](${url}) | ${getMarkdownTableCell({
+    currentValue: fcp.currentValue,
+    isRegression: fcp.isRegression,
+    diffValue: fcp.diff,
+    metricUnit: 'ms',
+    metricType: 'fcp'
+  })} | ${getMarkdownTableCell({
     currentValue: lcp.currentValue,
     isRegression: lcp.isRegression,
     diffValue: lcp.diff,
@@ -85,7 +92,13 @@ export const createMarkdownTableRowDetails = ({
     diffValue: tbt.diff,
     metricUnit: 'ms',
     metricType: 'tbt'
-  })} | [Rep](${link}) |`
+  })} | ${getMarkdownTableCell({
+    currentValue: speedIndex.currentValue,
+    isRegression: speedIndex.isRegression,
+    diffValue: speedIndex.diff,
+    metricUnit: 'ms',
+    metricType: 'speedIndex'
+  })} | [Link](${link}) |`
 }
 
 export const formatReportComparisonAsMarkdown = ({
@@ -97,7 +110,7 @@ export const formatReportComparisonAsMarkdown = ({
 }): string => {
   const comparison = getComparisonLinksObject({ inputPath })
   const comparisonSummary = `
-| URL | Perf | A11y | SEO | Best P. | Report |
+| URL | Perf | A11y | SEO | Best Practice | Report |
 |:--- |:---: | :---:| :---:| :---:| :---:|
 ${Object.entries(comparison)
   .map(([url, link]) => {
@@ -107,8 +120,8 @@ ${Object.entries(comparison)
 `.toString()
 
   const comparisonDetails = `
-| URL | Perf | A11y | SEO | Best P. | Report |
-|:--- |:---: | :---:| :---:| :---:| :---:|
+| URL | FCP | LCP | CLS | TBT | Speed I. | Report |
+|:--- |:---: | :---:| :---:| :---:| :---:| :---:|
 ${Object.entries(comparison)
   .map(([url, link]) => {
     return createMarkdownTableRowDetails({ url, comparedMetrics, link })
@@ -116,5 +129,5 @@ ${Object.entries(comparison)
   .join('\n')}
 `.toString()
 
-  return `# Lighthouse Report Comparison\n\n Lighthouse reports are likely to vary between runs ## Summary\n${comparisonSummary}\n\n## Details\n${comparisonDetails}`
+  return `# Lighthouse Report Comparison\n\n Lighthouse reports are likely to vary between runs \n\n## Summary\n${comparisonSummary}\n\n## Details\n${comparisonDetails} \n\n## Glossary\n\n- **FCP**: First Contentful Paint - measures loading performance. \n- **LCP**: Largest Contentful Paint - measures loading performance. \n- **CLS**: Cumulative Layout Shift - measures visual stability. \n- **TBT**: Total Blocking Time - measures interactivity. \n- **Speed Index**: measures how quickly the contents of a page are visibly populated. \n- **A11y**: Accessibility - measures how accessible the page is. \n- **Best P.**: Best Practices - measures adherence to best practices. \n- **SEO**: Search Engine Optimization - measures how well the page is optimized for search engines. \n`
 }
